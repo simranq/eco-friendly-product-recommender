@@ -10,7 +10,7 @@ This is a **Streamlit-based web application** that recommends **eco-friendly pro
 ✅ 📦 **Product images & descriptions** for better decision-making  
 
 ## 🚀 Live Demo:
-👉 **[Your Streamlit App URL]** (Add the deployed link here)
+👉 **https://eco-friendly.streamlit.app/** 
 
 ## 📖 Installation & Setup
 ### 1️⃣ Clone the Repository
