@@ -1,152 +1,72 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
+from stylesheet import custom_stylesheet
+st.set_page_config(page_title="Eco-Friendly Product Recommendation", page_icon="logo.jpeg")
+st.markdown(custom_stylesheet,unsafe_allow_html=True)
+st.markdown("<div class='header'>🌱 Eco-Friendly Product Recommendations</div>", unsafe_allow_html=True)
 
-# Load dataset and trained models
-df = pd.read_csv("cleaned_products.csv")
-cosine_sim = joblib.load("cosine_sim.pkl")
+st.markdown("<p style='color: #2E5733;'>Find sustainable products based on your preferences.</p>", unsafe_allow_html=True)
 
-# Define recommendation function
-def recommend_products(product_name, eco_level):
-    if product_name not in df['product_name'].values:
+# Load dataset
+if os.path.exists("cleaned_products.csv"):
+    df = pd.read_csv("cleaned_products.csv")  # Ensure dataset has necessary columns
+else:
+    st.error("Error: cleaned_products.csv not found!")
+    df = pd.DataFrame()
+
+
+# Sidebar UI
+# st.sidebar.image("logo.jpeg", width=50)  
+st.sidebar.header("Filters")
+product_type = st.sidebar.selectbox("Select Product Type:", df['category'].unique() if not df.empty else [])
+eco_level = st.sidebar.slider("Minimum Eco-Friendly Score:", min_value=1, max_value=10, value=5)
+
+def recommend_products(product_type, eco_level):
+    model_filename = f"./models/knn_model_{product_type}.pkl"
+    
+    if not os.path.exists(model_filename):
+        return pd.DataFrame()
+    
+    knn_model = joblib.load(model_filename)
+    
+    filtered_df = df[df['category'] == product_type]
+    if filtered_df.empty:
         return pd.DataFrame()
 
-    idx = df[df['product_name'] == product_name].index[0]
-    similar_products = list(enumerate(cosine_sim[idx]))
-    sorted_products = sorted(similar_products, key=lambda x: x[1], reverse=True)[1:6]
+    numeric_features = ['eco_friendly_score']
+    features = filtered_df[numeric_features]
+    
+    if features.empty or features.shape[0] < knn_model.n_neighbors:
+        return pd.DataFrame()
 
-    recommendations = df.iloc[[i[0] for i in sorted_products]][['product_name', 'category', 'eco_friendly_score', 'image_url', 'product_description']]
+    distances, indices = knn_model.kneighbors(features)
+    recommendations = filtered_df.iloc[indices[0]]
+    
     return recommendations[recommendations['eco_friendly_score'] >= eco_level]
 
-# Streamlit UI Configuration
-st.set_page_config(page_title="Eco-Friendly Product Recommender", layout="wide")
+if not df.empty:
+    if st.sidebar.button("Get Recommendations"):
+        recommended_products = recommend_products(product_type, eco_level)
+        
+        if recommended_products.empty:
+            st.warning("No suitable recommendations found.")
+        else:
+            st.markdown("<div class='product-container'>", unsafe_allow_html=True)
 
-# Apply Custom Styling with Perfect Margins & Elegant Typography
-st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Playfair+Display:wght@600&display=swap');
-
-        * {
-            font-family: 'Poppins', sans-serif;
-        }
-        .stApp {
-            background-color: #F5F1E3;
-            padding: 40px;
-        }
-        .header {
-            text-align: center;
-            padding: 30px;
-            background: #A7C7A4;
-            color: #2E5733;
-            font-size: 42px;
-            font-weight: 600;
-            font-family: 'Playfair Display', serif;
-            border-radius: 12px;
-            margin-bottom: 40px;
-        }
-        .product-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            justify-content: center;
-            padding: 20px;
-        }
-        .product-card {
-            background: #FFFFFF;
-            padding: 25px;
-            border-radius: 18px;
-            text-align: center;
-            box-shadow: 2px 4px 12px rgba(0,0,0,0.12);
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-            width: 280px;
-            margin-bottom: 20px;
-        }
-        .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 4px 6px 18px rgba(0,0,0,0.15);
-        }
-        .product-card img {
-            width: 160px;
-            height: auto;
-            display: block;
-            margin: 15px auto;
-            border-radius: 12px;
-        }
-        .product-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #3B5D3A;
-            margin-bottom: 5px;
-        }
-        .product-category {
-            font-size: 14px;
-            color: #6B6B6B;
-            margin-bottom: 10px;
-        }
-        .eco-score {
-            font-size: 16px;
-            font-weight: bold;
-            color: #2E5733;
-            background-color: #E6EFE9;
-            padding: 6px 12px;
-            border-radius: 10px;
-            display: inline-block;
-            margin-top: 5px;
-        }
-        .sidebar .block-container {
-            background: #E6EFE9;
-            padding: 20px;
-            border-radius: 12px;
-        }
-        .stButton>button {
-            background-color: #6F9868;
-            color: white;
-            padding: 10px 18px;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: 600;
-            transition: all 0.3s ease-in-out;
-            border: none;
-        }
-        .stButton>button:hover {
-            background-color: #4E7D57;
-            transform: scale(1.05);
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Title with Elegant Font
-st.markdown('<div class="header">🌿 Eco-Friendly Product Recommendation</div>', unsafe_allow_html=True)
-st.write("Find the best sustainable alternatives that fit your eco-conscious lifestyle.")
-
-# Sidebar for Filters
-st.sidebar.header("🔎 Filters")
-search_term = st.sidebar.text_input("Search for a product:")
-filtered_products = df[df['product_name'].str.contains(search_term, case=False, na=False)]
-
-# Product Selection & Eco Score
-product_name = st.sidebar.selectbox("Select a product:", filtered_products['product_name'].values)
-eco_level = st.sidebar.slider("Minimum Eco-Friendliness Score:", 1, 10, 5)
-
-# Display Recommendations
-if st.sidebar.button("Get Recommendations"):
-    recommendations = recommend_products(product_name, eco_level)
-
-    if recommendations.empty:
-        st.warning("No products match the selected eco-friendliness level.")
-    else:
-        st.success(f"🌱 Top sustainable alternatives for **{product_name}**:")
-
-        # Display Products in a Flexbox Layout
-        st.markdown('<div class="product-container">', unsafe_allow_html=True)
-        for idx, row in recommendations.iterrows():
-            st.markdown(f"""
-                <div class="product-card">
-                    <img src="{row['image_url']}" alt="{row['product_name']}">
-                    <p class="product-title">{row['product_name']}</p>
-                    <p class="product-category">{row['category']}</p>
-                    <p class="eco-score">🌎 Eco Score: {row['eco_friendly_score']}/10</p>
-                    <p>{row['product_description']}</p>
-                </div>
-            """, unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+            for _, row in recommended_products.iterrows():
+                st.markdown(f"""
+                    <div class='product-card'>
+                        <img src="{row['image_url']}" alt="Product Image">
+                        <p class='product-title'>{row['product_name']}</p>
+                        <p class='product-category'><b>Category:</b> {row['category']}</p>
+                        <p class='eco-score'>🌱 Eco-Friendly Score: {row['eco_friendly_score']}</p>
+                        <p>{row['product_description']}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+else:
+    st.error("No dataset available to display.")
+   
