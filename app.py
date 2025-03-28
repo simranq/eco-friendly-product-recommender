@@ -38,13 +38,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Display Logo and Header
-st.markdown("""
-    <div class="header-container">
-        <div class="header">
-            <img src="proj-favicon.jpg" alt="logo">
-            🌿 Eco-Friendly Product Recommendation
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+col1, col2 = st.columns([1, 10])  # Adjust width ratios
+with col1:
+    st.image("proj-favicon.jpg", width=60)  # Load logo
+with col2:
+    st.markdown('<h1 style="color:#2E5733; font-family:Playfair Display, serif;"> Eco-Friendly Product Recommendation</h1>', unsafe_allow_html=True)
 
 st.write("Find the best sustainable alternatives that fit your eco-conscious lifestyle.")
